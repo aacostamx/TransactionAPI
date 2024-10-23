@@ -23,11 +23,25 @@ namespace TransactionAPI.Controllers
 
             if (!string.IsNullOrEmpty(searchQuery))
             {
+                searchQuery = searchQuery.ToLower();
+
+                // Check if the searchQuery is numeric for amount comparison
+                decimal searchAmount;
+                bool isNumeric = decimal.TryParse(searchQuery, out searchAmount);
+
                 query = query.Where(t =>
-                    t.TransactionId.Contains(searchQuery) ||
-                    t.Status.Contains(searchQuery));
+                    (t.TransactionId != null && t.TransactionId.ToLower().Contains(searchQuery)) ||  // Case-insensitive search on TransactionId
+                    (t.Status != null && t.Status.ToLower().Contains(searchQuery)) ||
+                    (t.Description != null && t.Description.ToLower().Contains(searchQuery)) ||
+                    (t.OriginAccount != null && t.OriginAccount.ToLower().Contains(searchQuery)) ||
+                    (t.DestinationAccount != null && t.DestinationAccount.ToLower().Contains(searchQuery)) ||
+                    (t.Category != null && t.Category.ToLower().Contains(searchQuery)) ||
+                    (t.Type != null && t.Type.ToLower().Contains(searchQuery)) ||
+                    (t.Currency != null && t.Currency.ToLower().Contains(searchQuery)) ||
+                    (isNumeric && t.Amount != null && t.Amount == searchAmount));   // Only check Amount if searchQuery is numeric
             }
 
+            // Order by CreatedDate and take the top 500 results
             query = query.OrderByDescending(t => t.CreatedDate);
 
             var transactions = await query.Take(500).ToListAsync();
@@ -58,7 +72,7 @@ namespace TransactionAPI.Controllers
             }
 
             transaction.Date = transaction.Date.ToUniversalTime();
-            transaction.CreatedDate = transaction.CreatedDate.ToUniversalTime();
+            transaction.CreatedDate = transaction.CreatedDate?.ToUniversalTime();
 
             _context.Entry(transaction).State = EntityState.Modified;
 
@@ -93,10 +107,19 @@ namespace TransactionAPI.Controllers
             var transaction = new Transaction
             {
                 TransactionId = Guid.NewGuid().ToString(),
-                Date = DateTime.SpecifyKind(transactionDto.Date, DateTimeKind.Utc),
                 Amount = transactionDto.Amount,
                 Status = transactionDto.Status,
-                CreatedDate = DateTime.UtcNow
+                Date = DateTime.SpecifyKind(transactionDto.Date, DateTimeKind.Utc),
+                CreatedDate = DateTime.UtcNow,
+                Description = transactionDto.Description,
+                OriginAccount = transactionDto.OriginAccount,
+                DestinationAccount = transactionDto.DestinationAccount,
+                Category = transactionDto.Category,
+                Type = transactionDto.Type,
+                Currency = transactionDto.Currency,
+                IsActive = transactionDto.IsActive,
+                TransactionType = transactionDto.TransactionType,
+                IsRecurring = transactionDto.IsRecurring
             };
 
             _context.Transactions.Add(transaction);
